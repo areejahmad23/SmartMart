@@ -1,91 +1,198 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { MdCurrencyExchange, MdProductionQuantityLimits } from "react-icons/md";
 import { FaUsers } from "react-icons/fa";
 import { FaCartShopping } from "react-icons/fa6";
 import Chart from 'react-apexcharts';
 import { Link } from 'react-router-dom';
-import { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
- import { get_admin_dashboard_data } from '../../store/Reducers/dashboardReducer';
+import { 
+  get_admin_dashboard_data,
+  get_weekly_stats,
+  get_monthly_stats,
+  get_daily_stats
+} from '../../store/Reducers/dashboardReducer';
 import { useSelector } from 'react-redux';
 import moment from 'moment';
-import seller from '../../assets/seller.png'
+import seller from '../../assets/seller.png';
+
 const AdminDashboard = () => {
-  const dispatch = useDispatch()
-  const {totalSale,totalOrder,totalProduct,totalSeller,recentOrder,recentMessage} = useSelector(state=> state.dashboard)
-     const {userInfo} = useSelector(state=> state.auth)
+  const dispatch = useDispatch();
+  const [timeRange, setTimeRange] = useState('daily'); // 'daily', 'weekly' or 'monthly'
+  
+  const { 
+    totalSale, 
+    totalOrder, 
+    totalProduct, 
+    totalSeller, 
+    recentOrder, 
+    recentMessage,
+    weeklyStats,
+    monthlyStats,
+    dailyStats
+  } = useSelector(state => state.dashboard);
+  
+  const { userInfo } = useSelector(state => state.auth);
+
   useEffect(() => {
-      dispatch(get_admin_dashboard_data())
-  }, [])
+    dispatch(get_admin_dashboard_data());
+    if (timeRange === 'daily') {
+      dispatch(get_daily_stats());
+    } else if (timeRange === 'weekly') {
+      dispatch(get_weekly_stats());
+    } else {
+      dispatch(get_monthly_stats());
+    }
+  }, [dispatch, timeRange]);
+
+  // Format data for chart based on time range
+  const formatChartData = () => {
+    if (timeRange === 'daily') {
+      if (!dailyStats) {
+        return {
+          series: [
+            { name: "Orders", data: [0] },
+            { name: "Revenue", data: [0] },
+            { name: "Sellers", data: [0] }
+          ],
+          categories: ['Today']
+        };
+      }
+
+      return {
+        series: [
+          { name: "Orders", data: [dailyStats.orders] },
+          { name: "Revenue", data: [dailyStats.revenue] },
+          { name: "Sellers", data: [dailyStats.sellers] }
+        ],
+        categories: ['Today']
+      };
+    } else if (timeRange === 'weekly') {
+      const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      
+      if (!weeklyStats) {
+        return {
+          series: [
+            { name: "Orders", data: Array(7).fill(0) },
+            { name: "Revenue", data: Array(7).fill(0) },
+            { name: "Sellers", data: Array(7).fill(0) }
+          ],
+          categories: daysOfWeek
+        };
+      }
+
+      const orderedStats = daysOfWeek.map(day => {
+        const dayData = weeklyStats.find(item => item.day === day) || {
+          orders: 0,
+          revenue: 0,
+          sellers: 0
+        };
+        return dayData;
+      });
+
+      return {
+        series: [
+          { name: "Orders", data: orderedStats.map(day => day.orders) },
+          { name: "Revenue", data: orderedStats.map(day => day.revenue) },
+          { name: "Sellers", data: orderedStats.map(day => day.sellers) }
+        ],
+        categories: daysOfWeek
+      };
+    } else {
+      // Monthly data
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      
+      if (!monthlyStats) {
+        return {
+          series: [
+            { name: "Orders", data: Array(12).fill(0) },
+            { name: "Revenue", data: Array(12).fill(0) },
+            { name: "Sellers", data: Array(12).fill(0) }
+          ],
+          categories: months
+        };
+      }
+
+      const orderedStats = months.map(month => {
+        const monthData = monthlyStats.find(item => item.month === month) || {
+          orders: 0,
+          revenue: 0,
+          sellers: 0
+        };
+        return monthData;
+      });
+
+      return {
+        series: [
+          { name: "Orders", data: orderedStats.map(month => month.orders) },
+          { name: "Revenue", data: orderedStats.map(month => month.revenue) },
+          { name: "Sellers", data: orderedStats.map(month => month.sellers) }
+        ],
+        categories: months
+      };
+    }
+  };
+
+  const chartData = formatChartData();
 
   const state = {
-    series: [
-      {
-        name: "Orders",
-        data: [23, 34, 45, 56, 76, 34, 23, 76, 87, 78, 34, 45]
-      },
-      {
-        name: "Revenue",
-        data: [67, 39, 45, 56, 90, 56, 23, 56, 87, 78, 67, 78]
-      },
-      {
-        name: "Sellers",
-        data: [34, 39, 56, 56, 80, 67, 23, 56, 98, 78, 45, 56]
-      },
-    ],
+    series: chartData.series,
     options: {
-      colors: ["#000033", "#0077cc", "#000000"], // Consistent color scheme
+      colors: ["#000033", "#0077cc", "#000000"],
       chart: {
         background: 'transparent',
-        foreColor: '#000000', // Dark text for readability
+        foreColor: '#000000',
         toolbar: {
-          show: true, // Enable toolbar for zoom and download
+          show: true,
         },
       },
       plotOptions: {
         bar: {
           horizontal: false,
-          columnWidth: '70%', // Increased bar width
-          endingShape: 'rounded', // Rounded bar edges
+          columnWidth: timeRange === 'daily' ? '30%' : '70%',
+          endingShape: 'rounded',
         },
       },
       dataLabels: {
-        enabled: false, // Disable data labels for cleaner look
+        enabled: false,
       },
       stroke: {
         show: true,
         width: 2,
-        colors: ['transparent'], // Remove stroke for a cleaner look
+        colors: ['transparent'],
       },
       xaxis: {
-        categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+        categories: chartData.categories,
         labels: {
           style: {
-            colors: '#000000', // Dark text for readability
+            colors: '#000000',
           },
         },
       },
       yaxis: {
         labels: {
           style: {
-            colors: '#000000', // Dark text for readability
+            colors: '#000000',
           },
         },
       },
       legend: {
-        position: 'top', // Move legend to the top
+        position: 'top',
         markers: {
-          radius: 12, // Rounded legend markers
+          radius: 12,
         },
       },
       grid: {
-        borderColor: '#f0f0f0', // Light grid lines
-        strokeDashArray: 5, // Dashed grid lines
+        borderColor: '#f0f0f0',
+        strokeDashArray: 5,
       },
       tooltip: {
-        theme: 'light', // Light tooltip theme
+        theme: 'light',
         y: {
-          formatter: (value) => `$${value}`, // Add dollar sign for revenue
+          formatter: function(value, { seriesIndex }) {
+            // Only add $ for revenue (seriesIndex 1)
+            return seriesIndex === 1 ? `$${value}` : value;
+          },
         },
       },
     },
@@ -98,7 +205,7 @@ const AdminDashboard = () => {
         {/* Total Sales Card */}
         <div className='flex justify-between items-center p-5 bg-gradient-to-r from-[#000022] to-[#0055aa] rounded-md gap-3 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1'>
           <div className='flex flex-col justify-start items-start text-[#ffffff]'>
-            <h2 className='text-3xl font-bold'>{totalSale}</h2>
+            <h2 className='text-3xl font-bold'>${totalSale}</h2>
             <span className='text-md font-medium'>Total Sales</span>
           </div>
           <div className='w-[40px] h-[47px] rounded-full bg-[#ffffff] flex justify-center items-center text-xl'>
@@ -140,10 +247,47 @@ const AdminDashboard = () => {
         </div>
       </div>
 
+
       {/* Chart Section */}
       <div className='w-full flex flex-wrap mt-7'>
         <div className='w-full lg:w-7/12 lg:pr-3'>
           <div className='w-full bg-[#ffffff] p-4 rounded-md shadow-[0_-4px_10px_rgba(0,0,0,0.1)] hover:shadow-[0_-4px_15px_rgba(0,0,0,0.2)] transition-all duration-300'>
+            {/* Time Range Selector */}
+            <div className="flex justify-end mb-4">
+              <div className="inline-flex rounded-md shadow-sm">
+                <button
+                  onClick={() => setTimeRange('daily')}
+                  className={`px-4 py-2 text-sm font-medium rounded-l-lg ${
+                    timeRange === 'daily'
+                      ? 'bg-[#000033] text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Daily
+                </button>
+                <button
+                  onClick={() => setTimeRange('weekly')}
+                  className={`px-4 py-2 text-sm font-medium ${
+                    timeRange === 'weekly'
+                      ? 'bg-[#000033] text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Weekly
+                </button>
+                <button
+                  onClick={() => setTimeRange('monthly')}
+                  className={`px-4 py-2 text-sm font-medium rounded-r-lg ${
+                    timeRange === 'monthly'
+                      ? 'bg-[#000033] text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Monthly
+                </button>
+              </div>
+            </div>
+            
             <Chart options={state.options} series={state.series} type='bar' height={350} />
           </div>
         </div>
@@ -207,7 +351,7 @@ const AdminDashboard = () => {
                   <td className='py-3 px-4 font-medium whitespace-nowrap'>{d.payment_status}</td>
                   <td className='py-3 px-4 font-medium whitespace-nowrap'>{d.delivery_status}</td>
                   <td className='py-3 px-4 font-medium whitespace-nowrap'>
-                    <Link  to={`/admin/dashboard/order/details/${d._id}`} className='text-[#0077cc] hover:text-[#000033] transition-colors'>View</Link>
+                    <Link to={`/admin/dashboard/order/details/${d._id}`} className='text-[#0077cc] hover:text-[#000033] transition-colors'>View</Link>
                   </td>
                 </tr>
               ))}

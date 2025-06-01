@@ -115,6 +115,274 @@ class dashboardController {
     }
     //end Method 
 
+
+    // daily
+    get_daily_stats = async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1); // Start of tomorrow
+    tomorrow.setHours(0, 0, 0, 0);
+
+    // Aggregate orders created today
+    const ordersStats = await authOrder.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: today, $lt: tomorrow }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          orders: { $sum: 1 },
+          revenue: { $sum: "$price" }
+        }
+      }
+    ]);
+
+    // Aggregate new sellers registered today
+    const sellersStats = await sellerModel.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: today, $lt: tomorrow }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          sellers: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const result = {
+      date: today.toISOString().slice(0, 10), // e.g. "2025-05-28"
+      orders: ordersStats.length > 0 ? ordersStats[0].orders : 0,
+      revenue: ordersStats.length > 0 ? ordersStats[0].revenue : 0,
+      sellers: sellersStats.length > 0 ? sellersStats[0].sellers : 0
+    };
+
+    responseReturn(res, 200, result);
+  } catch (error) {
+    console.error(error);
+    responseReturn(res, 500, { error: error.message });
+  }
+};
+
+
+    // NEW: Add weekly stats method
+
+// get_weekly_stats = async (req, res) => {
+//   try {
+//     const today = new Date();
+//     const lastWeek = new Date(today);
+//     lastWeek.setDate(lastWeek.getDate() - 6); // last 7 days including today
+
+//     // Aggregate orders by day of week
+//     const ordersStats = await authOrder.aggregate([
+//       {
+//         $match: {
+//           createdAt: { $gte: lastWeek, $lte: today }
+//         }
+//       },
+//       {
+//         $group: {
+//           _id: { $dayOfWeek: "$createdAt" }, // 1=Sunday ... 7=Saturday
+//           orders: { $sum: 1 },
+//           revenue: { $sum: "$price" }
+//         }
+//       }
+//     ]);
+
+//     // Aggregate new sellers by day of week (registered in last 7 days)
+//     const sellersStats = await sellerModel.aggregate([
+//       {
+//         $match: {
+//           createdAt: { $gte: lastWeek, $lte: today }
+//         }
+//       },
+//       {
+//         $group: {
+//           _id: { $dayOfWeek: "$createdAt" },
+//           sellers: { $sum: 1 }
+//         }
+//       }
+//     ]);
+
+//     const daysMap = {
+//       1: 'Sun',
+//       2: 'Mon',
+//       3: 'Tue',
+//       4: 'Wed',
+//       5: 'Thu',
+//       6: 'Fri',
+//       7: 'Sat'
+//     };
+
+//     // Combine data for each day of week (Sun to Sat)
+//     const result = [1, 2, 3, 4, 5, 6, 7].map(dayNum => {
+//       const orderDay = ordersStats.find(o => o._id === dayNum);
+//       const sellerDay = sellersStats.find(s => s._id === dayNum);
+
+//       return {
+//         day: daysMap[dayNum],
+//         orders: orderDay ? orderDay.orders : 0,
+//         revenue: orderDay ? orderDay.revenue : 0,
+//         sellers: sellerDay ? sellerDay.sellers : 0
+//       };
+//     });
+
+//     responseReturn(res, 200, result);
+//   } catch (error) {
+//     console.error(error);
+//     responseReturn(res, 500, { error: error.message });
+//   }
+// };
+get_weekly_stats = async (req, res) => {
+  try {
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0=Sun, 6=Sat
+
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - dayOfWeek); // Go to previous Sunday
+    startOfWeek.setHours(0, 0, 0, 0); // Beginning of day
+
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6); // Saturday
+    endOfWeek.setHours(23, 59, 59, 999); // End of day
+
+    // Aggregate orders
+    const ordersStats = await authOrder.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startOfWeek, $lte: endOfWeek }
+        }
+      },
+      {
+        $group: {
+          _id: { $dayOfWeek: "$createdAt" },
+          orders: { $sum: 1 },
+          revenue: { $sum: "$price" }
+        }
+      }
+    ]);
+
+    // Aggregate new sellers
+    const sellersStats = await sellerModel.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startOfWeek, $lte: endOfWeek }
+        }
+      },
+      {
+        $group: {
+          _id: { $dayOfWeek: "$createdAt" },
+          sellers: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const daysMap = {
+      1: 'Sun',
+      2: 'Mon',
+      3: 'Tue',
+      4: 'Wed',
+      5: 'Thu',
+      6: 'Fri',
+      7: 'Sat'
+    };
+
+    const result = [1, 2, 3, 4, 5, 6, 7].map(dayNum => {
+      const orderDay = ordersStats.find(o => o._id === dayNum);
+      const sellerDay = sellersStats.find(s => s._id === dayNum);
+      return {
+        day: daysMap[dayNum],
+        orders: orderDay ? orderDay.orders : 0,
+        revenue: orderDay ? orderDay.revenue : 0,
+        sellers: sellerDay ? sellerDay.sellers : 0
+      };
+    });
+
+    responseReturn(res, 200, result);
+  } catch (error) {
+    console.error(error);
+    responseReturn(res, 500, { error: error.message });
+  }
+};
+
+
+    //end Method 
+
+
+get_monthly_stats = async (req, res) => {
+  try {
+    const currentYear = new Date().getFullYear();
+
+    // Orders per month for current year
+    const ordersStats = await authOrder.aggregate([
+      {
+        $match: {
+          createdAt: {
+            $gte: new Date(`${currentYear}-01-01`),
+            $lte: new Date(`${currentYear}-12-31T23:59:59.999Z`)
+          }
+        }
+      },
+      {
+        $group: {
+          _id: { $month: "$createdAt" },
+          orders: { $sum: 1 },
+          revenue: { $sum: "$price" }
+        }
+      },
+      { $sort: { "_id": 1 } }
+    ]);
+
+    // Sellers registered per month for current year
+    const sellersStats = await sellerModel.aggregate([
+      {
+        $match: {
+          createdAt: {
+            $gte: new Date(`${currentYear}-01-01`),
+            $lte: new Date(`${currentYear}-12-31T23:59:59.999Z`)
+          }
+        }
+      },
+      {
+        $group: {
+          _id: { $month: "$createdAt" },
+          sellers: { $sum: 1 }
+        }
+      },
+      { $sort: { "_id": 1 } }
+    ]);
+
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    const result = months.map((monthName, idx) => {
+      const monthNumber = idx + 1;
+      const orderMonth = ordersStats.find(o => o._id === monthNumber);
+      const sellerMonth = sellersStats.find(s => s._id === monthNumber);
+
+      return {
+        month: monthName,
+        orders: orderMonth ? orderMonth.orders : 0,
+        revenue: orderMonth ? orderMonth.revenue : 0,
+        sellers: sellerMonth ? sellerMonth.sellers : 0
+      };
+    });
+
+    responseReturn(res, 200, result);
+  } catch (error) {
+    console.error(error);
+    responseReturn(res, 500, { error: error.message });
+  }
+};
+
+
+
     add_banner = async(req,res) =>{
         const form = formidable({
             multiples:true
@@ -196,7 +464,6 @@ class dashboardController {
         //end Method 
 
         get_banners = async(req, res) => {
- 
             try {
                 const banners = await bannerModel.aggregate([
                     {
@@ -209,10 +476,8 @@ class dashboardController {
             } catch (error) {
                 responseReturn(res, 500, { error: error.message})
             }
-    
         }
         //end Method 
-    
 }
 
 module.exports = new dashboardController()

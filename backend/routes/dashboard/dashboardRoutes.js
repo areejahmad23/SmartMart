@@ -8,4 +8,11 @@ const dashboardController = require('../../controllers/dashboard/dashboardContro
  router.get('/banner/get/:productId',authMiddleware, dashboardController.get_banner)  
  router.put('/banner/update/:bannerId',authMiddleware, dashboardController.update_banner) 
  router.get('/banners', dashboardController.get_banners) 
+
+ router.get('/admin/get-weekly-stats', authMiddleware, dashboardController.get_weekly_stats);
+ router.get('/admin/monthly-stats', authMiddleware, dashboardController.get_monthly_stats);
+ router.get('/admin/daily-stats', authMiddleware, dashboardController.get_daily_stats);
+
+
+
  module.exports = router
