@@ -3,40 +3,55 @@ import Carousel from 'react-multi-carousel';
 import { Link } from 'react-router-dom';
 import 'react-multi-carousel/lib/styles.css';
 import { IoIosArrowBack, IoIosArrowForward } from "react-icons/io";
+import Rating from '../Rating';
 
-const Products = ({ title,products }) => {
-   
-
-    const responsive = {
-        superLargeDesktop: {
-            breakpoint: { max: 4000, min: 3000 },
-            items: 1
-        },
-        desktop: {
-            breakpoint: { max: 3000, min: 1024 },
-            items: 1
-        },
-        tablet: {
-            breakpoint: { max: 1024, min: 464 },
-            items: 1
-        },
-        mobile: {
-            breakpoint: { max: 464, min: 0 },
-            items: 1
-        },
-    };
-
+const Products = ({ title, products }) => {
     const carouselRef = useRef();
 
-    const ButtonGroup = ({ next, previous }) => {
+    const responsive = {
+        xxl: {
+            breakpoint: { max: 4000, min: 1536 },
+            items: 1
+        },
+        xl: {
+            breakpoint: { max: 1536, min: 1280 },
+            items: 1
+        },
+        lg: {
+            breakpoint: { max: 1280, min: 1024 },
+            items: 1
+        },
+        md: {
+            breakpoint: { max: 1024, min: 768 },
+            items: 1
+        },
+        sm: {
+            breakpoint: { max: 768, min: 640 },
+            items: 1
+        },
+        xs: {
+            breakpoint: { max: 640, min: 0 },
+            items: 1
+        }
+    };
+
+    const CustomButtonGroup = ({ next, previous }) => {
         return (
-            <div className='flex justify-between items-center'>
-                <div className='text-xl font-bold text-slate-600'> {title} </div>
-                <div className='flex justify-center items-center gap-3 text-slate-600'>
-                    <button onClick={previous} className='w-[30px] h-[30px] flex justify-center items-center bg-slate-300 border border-slate-200'>
+            <div className='flex justify-between items-center mb-6'>
+                <h2 className='text-2xl font-bold text-[#000033]'>{title}</h2>
+                <div className='flex gap-2'>
+                    <button 
+                        onClick={previous}
+                        className='w-10 h-10 flex justify-center items-center rounded-full bg-[#f0f5ff] text-[#000033] hover:bg-[#0077cc] hover:text-white transition-colors'
+                        aria-label="Previous products"
+                    >
                         <IoIosArrowBack />
                     </button>
-                    <button onClick={next} className='w-[30px] h-[30px] flex justify-center items-center bg-slate-300 border border-slate-200'>
+                    <button 
+                        onClick={next}
+                        className='w-10 h-10 flex justify-center items-center rounded-full bg-[#f0f5ff] text-[#000033] hover:bg-[#0077cc] hover:text-white transition-colors'
+                        aria-label="Next products"
+                    >
                         <IoIosArrowForward />
                     </button>
                 </div>
@@ -45,41 +60,65 @@ const Products = ({ title,products }) => {
     };
 
     return (
-        <div className='flex gap-8 flex-col-reverse mb-8'>
+        <div className='w-[95%] sm:w-[90%] md:w-[85%] mx-auto py-8'>
+            {/* Header and navigation buttons placed above the carousel */}
+            <CustomButtonGroup
+                next={() => carouselRef.current.next()}
+                previous={() => carouselRef.current.previous()}
+            />
+            
+            {/* Carousel component */}
             <Carousel
                 ref={carouselRef}
                 autoPlay={false}
-                infinite={false}
+                infinite={true}
                 arrows={false}
                 responsive={responsive}
-                transitionDuration={500}
-                renderButtonGroupOutside={true}
-                customButtonGroup={
-                    <ButtonGroup
-                        next={() => carouselRef.current.next()}
-                        previous={() => carouselRef.current.previous()}
-                    />
-                }
+                transitionDuration={300}
+                renderButtonGroupOutside={false}
+                itemClass="px-3"
+                containerClass="pb-4"
+                partialVisible={false}
             >
-                {
-                    products.map((p, i) => {
-                        return (
-                            <div key={i} className='flex flex-col justify-start gap-2'>
-                                {
-                                    p.map((pl, j) =>
-                                        <Link key={j} className='flex justify-start items-start' to='#'>
-                                            <img className='w-[110px] h-[110px]' src={pl.images[0]}  alt="" />
-                                            <div className='px-3 flex justify-start items-start gap-1 flex-col text-slate-600'>
-                                                <h2> {pl.name}  </h2>
-                                                <span className='text-lg font-bold'>${pl.price} </span>
-                                            </div>
-                                        </Link>
-                                    )
-                                }
-                            </div>
-                        );
-                    })
-                }
+                {products.map((productGroup, i) => (
+                    <div key={i} className='flex flex-col gap-4 h-full'>
+                        {productGroup.map((product, j) => (
+                            <Link 
+                                key={j} 
+                                to={`/product/details/${product.slug}`}
+                                className='flex items-center gap-4 p-3 rounded-lg bg-white border border-[#f0f5ff] hover:shadow-md transition-all duration-300'
+                            >
+                                <div className='flex-shrink-0'>
+                                    <img 
+                                        className='w-24 h-24 sm:w-28 sm:h-28 object-cover rounded-md'
+                                        src={product.images[0]}  
+                                        alt={product.name}
+                                        loading='lazy'
+                                    />
+                                </div>
+                                <div className='flex-1'>
+                                    <h3 className='text-[#000033] font-medium line-clamp-2 mb-1 hover:text-[#0077cc] transition-colors'>
+                                        {product.name}
+                                    </h3>
+                                    <div className='flex items-center gap-2 mb-1'>
+                                        <Rating ratings={product.rating} />
+                                        <span className='text-sm text-slate-500'>({product.reviews?.length || 0})</span>
+                                    </div>
+                                    <div className='flex items-center gap-2'>
+                                        <span className='text-lg font-bold text-[#000033]'>
+                                            ${(product.price - (product.price * (product.discount/100))).toFixed(2)}
+                                        </span>
+                                        {product.discount > 0 && (
+                                            <span className='text-sm text-slate-400 line-through'>
+                                                ${product.price.toFixed(2)}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+                ))}
             </Carousel>
         </div>
     );

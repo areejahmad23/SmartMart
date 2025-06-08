@@ -11,37 +11,43 @@ import { get_products } from '../store/reducers/homeReducer';
 
 const Home = () => {
     const dispatch = useDispatch()
-    const {products,latest_product, topRated_product, discount_product} = useSelector(state => state.home)
+    const { products, latest_product, topRated_product, discount_product } = useSelector(state => state.home)
+    
     useEffect(() => {
         dispatch(get_products())
-    }, [])
+    }, [dispatch])
+
     return (
-        <div className='w-full'>
-            <Header/>
-            <Banner/>
-            <Categorys/>
-            <div className='py-[45px]'>
-            <FeatureProducts products = {products} />
+        <div className='w-full bg-white'>
+            <Header />
+            <Banner />
+            <Categorys />
+            
+            {/* Featured Products Section */}
+            <div className='py-12 lg:py-10 md:py-8 sm:py-6'>
+                <div className='w-[85%] xl:w-[90%] lg:w-[95%] md:w-[95%] sm:w-[95%] mx-auto'>
+                    <FeatureProducts products={products} />
+                </div>
             </div>
 
-            <div className='w-[85%] flex flex-wrap mx-auto'>
-                    <div className='grid w-full grid-cols-3 md-lg:grid-cols-2 md:grid-cols-1 gap-7'>
-            <div className='overflow-hidden'>
-            <Products title='Latest Product' products={latest_product} />            </div>
-
-            <div className='overflow-hidden'>
-            <Products title='Top Rated Product' products={topRated_product}/>            </div>
-
-            <div className='overflow-hidden'>
-            <Products title='Discount Product' products={discount_product}/>            </div>
-
-                    </div> 
-                </div> 
-                <Footer/>
+            {/* Product Grid Section */}
+            <div className='w-[85%] xl:w-[90%] lg:w-[95%] md:w-[95%] sm:w-[95%] mx-auto pb-16 lg:pb-12 md:pb-10 sm:pb-8'>
+                <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-6 sm:gap-4'>
+                    <div className='overflow-hidden'>
+                        <Products title='Latest Products' products={latest_product} />
+                    </div>
+                    <div className='overflow-hidden'>
+                        <Products title='Top Rated Products' products={topRated_product} />
+                    </div>
+                    <div className='overflow-hidden'>
+                        <Products title='Discount Products' products={discount_product} />
+                    </div>
+                </div>
             </div>
-           
-
-       
+            
+            <Footer />
+        </div>
     );
 };
+
 export default Home;
