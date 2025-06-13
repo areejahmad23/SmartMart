@@ -1,31 +1,31 @@
 import React, { useState } from 'react';
 import Header from '../components/Header';
- import Footer from '../components/Footer';
- import { FaList } from 'react-icons/fa';
- import { Link, Outlet, useNavigate } from 'react-router-dom';
- import { IoIosHome } from "react-icons/io";
- import { FaBorderAll } from "react-icons/fa6";
- import { FaHeart } from "react-icons/fa";
- import { IoChatbubbleEllipsesSharp } from "react-icons/io5";
- import { IoMdLogOut } from "react-icons/io";
- import { RiLockPasswordLine } from "react-icons/ri";
- import api from '../api/api';
- import { useDispatch } from 'react-redux';
- import { user_reset } from '../store/reducers/authReducer'
- import { reset_count } from '../store/reducers/cartReducer'
-// import reset_count from '../store/reducers/cartReducer';
- 
- 
- const Dashboard = () => {
-     const [filterShow, setFilterShow] =  useState(false)
- 
-     const navigate = useNavigate()
-     const dispatch = useDispatch()
- 
-     const logout = async () => {
+import Footer from '../components/Footer';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { 
+  FaList, 
+  FaHeart, 
+  FaBorderAll 
+} from 'react-icons/fa';
+import { 
+  IoIosHome,
+  IoMdLogOut,
+  IoMdChatboxes 
+} from "react-icons/io";
+import { RiLockPasswordLine } from "react-icons/ri";
+import api from '../api/api';
+import { useDispatch } from 'react-redux';
+import { user_reset } from '../store/reducers/authReducer';
+import { reset_count } from '../store/reducers/cartReducer';
+
+const Dashboard = () => {
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const navigate = useNavigate();
+    const dispatch = useDispatch();
+
+    const logout = async () => {
         try {
-            const response = await api.get('/customer/logout');
-            console.log("Logout success:", response?.data); // optional logging
+            await api.get('/customer/logout');
             localStorage.removeItem('customerToken');
             dispatch(user_reset());
             dispatch(reset_count());
@@ -33,65 +33,77 @@ import Header from '../components/Header';
         } catch (error) {
             console.error("Logout failed:", error);
             if (error.response) {
-                console.error("Server responded with:", error.response.data);
-            } else {
-                console.error("No response received or other error:", error.message);
+                console.error("Server response:", error.response.data);
             }
         }
     };
-    
- 
-     return (
-         <div>
-            <Header/>
-            <div className='bg-slate-200 mt-5'>
-                 <div className='w-[90%] mx-auto md-lg:block hidden'>
-                     <div>
-                         <button onClick={() => setFilterShow(!filterShow)} className='text-center py-3 px-3 bg-green-500 text-white'><FaList/> </button>
-                     </div> 
-                 </div>
- 
-         <div className='h-full mx-auto'>
-             <div className='py-5 flex md-lg:w-[90%] mx-auto relative'>
-                 <div className={`rounded-md z-50 md-lg:absolute ${filterShow ? '-left-4' : '-left-[360px]'} w-[270px] ml-4 bg-white`}>
- 
-             <ul className='py-2 text-slate-600 px-4'> 
- 
-                 <li className='flex justify-start items-center gap-2 py-2'>
-             <span className='text-xl'><IoIosHome /></span>
-             <Link to='/dashboard' className='block' >Dashboard </Link>
-                 </li>
-                 <li className='flex justify-start items-center gap-2 py-2'>
-             <span className='text-xl'><FaBorderAll/></span>
-             <Link to='/dashboard/my-orders' className='block' >My Orders </Link>
-                 </li>
-                 <li className='flex justify-start items-center gap-2 py-2'>
-             <span className='text-xl'><FaHeart/></span>
-             <Link to='/dashboard/my-wishlist' className='block' >Wishlist </Link>
-                 </li>
-                 <li className='flex justify-start items-center gap-2 py-2'>
-             <span className='text-xl'><IoChatbubbleEllipsesSharp/></span>
-             <Link to='/dashboard/chat' className='block' >Chat  </Link>
-                 </li>
-                 <li className='flex justify-start items-center gap-2 py-2'>
-             <span className='text-xl'><RiLockPasswordLine/></span>
-             <Link to='/dashboard/change-password' className='block' >Change Password  </Link>
-                 </li>
-                 <li onClick={logout} className='flex justify-start items-center gap-2 py-2 cursor-pointer'>                 <span className='text-xl'><IoMdLogOut/></span>
-                 <div  className='block' >Logout </div>                
-                  </li>              
-                   </ul>                
-                     </div>                
-                        <div className='w-[calc(100%-270px)] md-lg:w-full'>                    
-                             <div className='mx-4 md-lg:mx-0'>                        
-                                 <Outlet/>                   
-                                   </div>                
-                                    </div>            
-                                      </div>        
-                                       </div>                    
-                                             </div>            
-                                              <Footer/>         
-                                              </div>    
-                                               ); 
-                                            };  
+
+    const menuItems = [
+        { icon: <IoIosHome />, label: 'Dashboard', path: '/dashboard' },
+        { icon: <FaBorderAll />, label: 'My Orders', path: '/dashboard/my-orders' },
+        { icon: <FaHeart />, label: 'Wishlist', path: '/dashboard/my-wishlist' },
+        { icon: <IoMdChatboxes />, label: 'Chat', path: '/dashboard/chat' }, // Updated icon here
+        { icon: <RiLockPasswordLine />, label: 'Change Password', path: '/dashboard/change-password' },
+    ];
+
+    return (
+        <div className="bg-[#f8f9fa] min-h-screen flex flex-col">
+            <Header />
+            
+            <div className="flex-grow mt-5">
+                <div className="w-[90%] mx-auto">
+                    {/* Mobile Toggle Button */}
+                    <div className="md:hidden mb-4">
+                        <button 
+                            onClick={() => setSidebarOpen(!sidebarOpen)}
+                            className="px-4 py-2 bg-[#0077cc] text-white rounded-md flex items-center gap-2"
+                        >
+                            <FaList />
+                            <span>Menu</span>
+                        </button>
+                    </div>
+
+                    <div className="flex flex-col md:flex-row gap-6">
+                        {/* Sidebar */}
+                        <div className={`md:w-[270px] bg-white rounded-md shadow-sm transition-all duration-300
+                            ${sidebarOpen ? 'block' : 'hidden'} md:block`}
+                        >
+                            <ul className="py-4">
+                                {menuItems.map((item, index) => (
+                                    <li key={index} className="border-b border-[#e2e2e2] last:border-0">
+                                        <Link 
+                                            to={item.path}
+                                            className="flex items-center gap-3 px-4 py-3 text-[#000033] hover:bg-[#f0f5ff] transition-colors"
+                                            onClick={() => setSidebarOpen(false)}
+                                        >
+                                            <span className="text-xl text-[#0077cc]">{item.icon}</span>
+                                            <span>{item.label}</span>
+                                        </Link>
+                                    </li>
+                                ))}
+                                <li className="border-b border-[#e2e2e2] last:border-0">
+                                    <button
+                                        onClick={logout}
+                                        className="flex items-center gap-3 w-full px-4 py-3 text-[#000033] hover:bg-[#f0f5ff] transition-colors text-left"
+                                    >
+                                        <span className="text-xl text-[#0077cc]"><IoMdLogOut /></span>
+                                        <span>Logout</span>
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+
+                        {/* Main Content */}
+                        <div className="flex-1 bg-white rounded-md shadow-sm p-6">
+                            <Outlet />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <Footer />
+        </div>
+    );
+};
+
 export default Dashboard;

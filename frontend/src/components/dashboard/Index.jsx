@@ -5,109 +5,136 @@ import { get_dashboard_index_data } from '../../store/reducers/dashboardReducer'
 import { Link, useNavigate } from 'react-router-dom';
 
 const Index = () => {
-    const navigate = useNavigate()
-    const dispatch = useDispatch()
-    const {userInfo} = useSelector(state => state.auth)
-    const {recentOrders,totalOrder,pendingOrder,cancelledOrder} = useSelector(state => state.dashboard)
-    
+    const navigate = useNavigate();
+    const dispatch = useDispatch();
+    const { userInfo } = useSelector(state => state.auth);
+    const { recentOrders, totalOrder, pendingOrder, cancelledOrder } = useSelector(state => state.dashboard);
 
     useEffect(() => {
-        dispatch(get_dashboard_index_data(userInfo.id))
-    },[])
+        dispatch(get_dashboard_index_data(userInfo.id));
+    }, [dispatch, userInfo.id]);
 
-    const redirect = (ord) => {
-        let items = 0;
-        for (let i = 0; i < ord.length; i++) {
-            items = ord.products[i].quantity + items; 
-        }
-        navigate('/payment',{
+    const redirect = (order) => {
+        const items = order.products.reduce((total, product) => total + product.quantity, 0);
+        navigate('/payment', {
             state: {
-                price: ord.price,
+                price: order.price,
                 items,
-                orderId: ord._id 
+                orderId: order._id 
             }
-        }) 
-    }
+        });
+    };
+
+    const statusBadge = (status) => {
+        const statusClasses = {
+            'paid': 'bg-green-100 text-green-800',
+            'pending': 'bg-yellow-100 text-yellow-800',
+            'cancelled': 'bg-red-100 text-red-800',
+            'processing': 'bg-blue-100 text-blue-800',
+            'completed': 'bg-purple-100 text-purple-800'
+        };
+        return (
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusClasses[status.toLowerCase()] || 'bg-gray-100 text-gray-800'}`}>
+                {status}
+            </span>
+        );
+    };
 
     return (
-        <div>
-            
-            <div className='grid grid-cols-3 md:grid-cols-1 gap-5'>
-                <div className='flex justify-center items-center p-5 bg-white rounded-md gap-5'>
-                    <div className='bg-green-100 w-[47px] h-[47px] rounded-full flex justify-center items-center text-xl'>
-                        <span className='text-xl text-green-800'><RiShoppingCart2Fill /></span>
-                    </div>
-                    <div className='flex flex-col justify-start items-start text-slate-600'>
-                    <h2 className='text-3xl font-bold'>{totalOrder}</h2>
-                    <span>Orders </span>
-                    </div>
-                </div>
-                <div className='flex justify-center items-center p-5 bg-white rounded-md gap-5'>
-                    <div className='bg-green-100 w-[47px] h-[47px] rounded-full flex justify-center items-center text-xl'>
-                        <span className='text-xl text-green-800'><RiShoppingCart2Fill /></span>
-                    </div>
-                    <div className='flex flex-col justify-start items-start text-slate-600'>
-                    <h2 className='text-3xl font-bold'>{pendingOrder}</h2>
-                    <span>Pending Orders </span>
-                    </div>
-                </div>
-                <div className='flex justify-center items-center p-5 bg-white rounded-md gap-5'>
-                    <div className='bg-green-100 w-[47px] h-[47px] rounded-full flex justify-center items-center text-xl'>
-                        <span className='text-xl text-green-800'><RiShoppingCart2Fill /></span>
-                    </div>
-                    <div className='flex flex-col justify-start items-start text-slate-600'>
-                    <h2 className='text-3xl font-bold'>{cancelledOrder}</h2>
-                    <span> Cancelled Orders </span>
-                    </div>
-                </div>
-
+        <div className="p-4">
+            {/* Stats Cards */}
+            <div className='grid grid-cols-1 md:grid-cols-3 gap-4 mb-6'>
+                <StatCard 
+                    icon={<RiShoppingCart2Fill />}
+                    value={totalOrder}
+                    label="Total Orders"
+                    color="green"
+                />
+                <StatCard 
+                    icon={<RiShoppingCart2Fill />}
+                    value={pendingOrder}
+                    label="Pending Orders"
+                    color="blue"
+                />
+                <StatCard 
+                    icon={<RiShoppingCart2Fill />}
+                    value={cancelledOrder}
+                    label="Cancelled Orders"
+                    color="red"
+                />
             </div>
 
-            <div className='bg-white p-5 mt-5 rounded-md'>
-         <h2>Recent Orders</h2>
-         <div className='pt-4'>
-         <div className='relative overflow-x-auto rounded-md'>
- <table className='w-full text-sm text-left text-gray-500'>
-     <thead className='text-xs text-gray-700 uppercase bg-gray-200'>
-         <tr>
-             <th scope='col' className='px-6 py-3'>Order Id</th>
-             <th scope='col' className='px-6 py-3'>Price</th>
-             <th scope='col' className='px-6 py-3'>Payment Status</th>
-             <th scope='col' className='px-6 py-3'>Order Status</th>
-             <th scope='col' className='px-6 py-3'>Action</th> 
-         </tr>
-     </thead>
-         <tbody>
-         {
-                 recentOrders.map((o,i) => <tr className='bg-white border-b'>
-                 <td scope='row' className='px-6 py-4 font-medium whitespace-nowrap'>#{o._id}</td>
-                 <td scope='row' className='px-6 py-4 font-medium whitespace-nowrap'>${o.price}</td>
-                 <td scope='row' className='px-6 py-4 font-medium whitespace-nowrap'>{o.payment_status }</td>
-                 <td scope='row' className='px-6 py-4 font-medium whitespace-nowrap'>{o.delivery_status}</td>
-                 <td scope='row' className='px-6 py-4 font-medium whitespace-nowrap'>
-                 <Link to={`/dashboard/order/details/${o._id}`}><span className='bg-green-200 text-green-800 text-md font-semibold mr-2 px-3 
-                py-[2px] rounded'>View</span></Link> 
+            {/* Recent Orders Table */}
+            <div className='bg-white rounded-lg shadow-sm p-6'>
+                <h2 className='text-xl font-bold text-[#000033] mb-4'>Recent Orders</h2>
+                <div className='overflow-x-auto'>
+                    <table className='min-w-full divide-y divide-gray-200'>
+                        <thead className='bg-gray-50'>
+                            <tr>
+                                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>Order ID</th>
+                                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>Price</th>
+                                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>Payment Status</th>
+                                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>Order Status</th>
+                                <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className='bg-white divide-y divide-gray-200'>
+                            {recentOrders.map((order) => (
+                                <tr key={order._id} className='hover:bg-gray-50'>
+                                    <td className='px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900'>#{order._id}</td>
+                                    <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>${order.price.toFixed(2)}</td>
+                                    <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
+                                        {statusBadge(order.payment_status)}
+                                    </td>
+                                    <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
+                                        {statusBadge(order.delivery_status)}
+                                    </td>
+                                    <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 flex gap-2'>
+                                        <Link 
+                                            to={`/dashboard/order/details/${order._id}`}
+                                            className='px-3 py-1 bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 transition-colors'
+                                        >
+                                            View
+                                        </Link>
+                                        {order.payment_status !== 'paid' && (
+                                            <button
+                                                onClick={() => redirect(order)}
+                                                className='px-3 py-1 bg-green-100 text-green-800 rounded-md hover:bg-green-200 transition-colors'
+                                            >
+                                                Pay Now
+                                            </button>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+};
 
-                {
-                   o.payment_status !== 'paid' && <span onClick={() => redirect(o)} className='bg-green-200 text-green-800 text-md font-semibold mr-2 px-3 py-[2px] rounded cursor-pointer'>Pay Now</span> 
-                }
+const StatCard = ({ icon, value, label, color = 'green' }) => {
+    const colorClasses = {
+        green: 'bg-green-100 text-green-800',
+        blue: 'bg-blue-100 text-blue-800',
+        red: 'bg-red-100 text-red-800',
+        yellow: 'bg-yellow-100 text-yellow-800',
+        purple: 'bg-purple-100 text-purple-800'
+    };
 
-                 </td> 
-             </tr>
-                 
-                 )
-             }
-               </tbody>
- 
- </table>
- 
-         </div>
-         </div>
- 
-     </div>
- 
- </div>
-     );
- };
+    return (
+        <div className='bg-white rounded-lg shadow-sm p-4 flex items-center gap-4'>
+            <div className={`${colorClasses[color]} w-12 h-12 rounded-full flex items-center justify-center text-xl`}>
+                {icon}
+            </div>
+            <div>
+                <h3 className='text-2xl font-bold text-[#000033]'>{value}</h3>
+                <p className='text-sm text-gray-500'>{label}</p>
+            </div>
+        </div>
+    );
+};
 
 export default Index;

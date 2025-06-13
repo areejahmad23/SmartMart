@@ -107,7 +107,7 @@ const Shops = () => {
 
                     <div className='w-full flex flex-wrap'>
                         {/* Filters Sidebar */}
-                        <div className={`w-full sm:w-4/12 md:w-3/12 pr-0 sm:pr-4 ${filter ? 'block' : 'hidden sm:block'}`}>
+                        <div className={`w-full sm:w-3/12 ${filter ? 'block' : 'hidden sm:block'} pr-0 sm:pr-4`}>
                             <div className='bg-white p-4 rounded-md shadow-sm mb-6'>
                                 <h2 className='text-xl sm:text-2xl font-bold mb-3 text-[#000033]'>Category</h2>
                                 <div className='py-2'>
@@ -154,7 +154,7 @@ const Shops = () => {
                                 </div>
                             </div>
 
-                            <div className='bg-white p-4 rounded-md shadow-sm mb-6'>
+                            <div className='bg-white p-4 rounded-md shadow-sm'>
                                 <h2 className='text-xl sm:text-2xl font-bold mb-3 text-[#000033]'>Rating</h2>
                                 <div className='flex flex-col gap-3'>
                                     {[5, 4, 3, 2, 1].map((stars) => (
@@ -175,15 +175,10 @@ const Shops = () => {
                                     </div> 
                                 </div> 
                             </div>
-
-                            {/* Latest Products - Hidden on mobile when filters are hidden */}
-                            <div className={`${filter ? 'block' : 'hidden sm:block'} bg-white p-4 rounded-md shadow-sm`}>
-                                <Products title='Latest Product' products={latest_product} />
-                            </div> 
                         </div>
 
                         {/* Products Grid */}
-                        <div className='w-full sm:w-8/12 md:w-9/12'>
+                        <div className='w-full sm:w-9/12'>
                             <div className='pl-0 sm:pl-4'>
                                 <div className='py-4 bg-white mb-6 px-4 rounded-md shadow-sm flex flex-col sm:flex-row justify-between items-start border border-[#e2e2e2]'>
                                     <h2 className='text-lg font-medium text-[#000033] mb-2 sm:mb-0'>
@@ -215,19 +210,28 @@ const Shops = () => {
                                     </div> 
                                 </div> 
 
+                                {/* Main Products Grid */}
                                 <div className='pb-8'>
                                     <ShopProducts products={products} styles={styles} />  
+                                    
+                                    {/* Pagination - Now placed right after main products */}
+                                    {totalProduct > parPage && (
+                                        <div className='mt-8'>
+                                            <Pagination 
+                                                pageNumber={pageNumber} 
+                                                setPageNumber={setPageNumber} 
+                                                totalItem={totalProduct} 
+                                                parPage={parPage} 
+                                                showItem={Math.floor(totalProduct / parPage)} 
+                                            />
+                                        </div>
+                                    )}
                                 </div>
 
-                                {totalProduct > parPage && (
-                                    <Pagination 
-                                        pageNumber={pageNumber} 
-                                        setPageNumber={setPageNumber} 
-                                        totalItem={totalProduct} 
-                                        parPage={parPage} 
-                                        showItem={Math.floor(totalProduct / parPage)} 
-                                    />
-                                )}
+                                {/* Latest Products Section - Now placed below pagination */}
+                                <div className='bg-white p-4 rounded-md shadow-sm mb-6'>
+                                    <Products title='Latest Products' products={latest_product} />
+                                </div>
                             </div> 
                         </div>  
                     </div>
