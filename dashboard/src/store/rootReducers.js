@@ -7,7 +7,12 @@ import  OrderReducer  from "./Reducers/OrderReducer";
 import PaymentReducer from "./Reducers/PaymentReducer";
 import dashboardReducer from "./Reducers/dashboardReducer";
 import bannerReducer from "./Reducers/bannerReducer";
+// import { salesReportReducer } from "./Reducers/salesReportReducer";
+import salesReportReducer from './Reducers/salesReportReducer';
+
+
 const rootReducer = {
+    salesReport: salesReportReducer,
     auth: authReducer,
     category : categoryReducer,
     product: productReducer,
@@ -16,6 +21,7 @@ const rootReducer = {
     order: OrderReducer,
     payment: PaymentReducer,
     dashboard: dashboardReducer,
-    banner: bannerReducer
+    banner: bannerReducer,
+
 }
 export default rootReducer;

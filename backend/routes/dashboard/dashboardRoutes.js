@@ -1,5 +1,6 @@
 const dashboardController = require('../../controllers/dashboard/dashboardController') 
  const { authMiddleware } = require('../../middlewares/authMiddleware')
+
  const router = require('express').Router()
    
  router.get('/admin/get-dashboard-data',authMiddleware, dashboardController.get_admin_dashboard_data)  
@@ -12,6 +13,8 @@ const dashboardController = require('../../controllers/dashboard/dashboardContro
  router.get('/admin/get-weekly-stats', authMiddleware, dashboardController.get_weekly_stats);
  router.get('/admin/monthly-stats', authMiddleware, dashboardController.get_monthly_stats);
  router.get('/admin/daily-stats', authMiddleware, dashboardController.get_daily_stats);
+ router.get('/admin/sales-report', authMiddleware, dashboardController.getSalesReport);
+
 
 
 

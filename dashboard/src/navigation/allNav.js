@@ -13,7 +13,7 @@ import { MdDiscount } from "react-icons/md";
 import { BsCartCheckFill } from "react-icons/bs";
 import { BsChatDotsFill } from "react-icons/bs";
 import { FaCircleUser } from "react-icons/fa6";
-
+import { RiBarChart2Fill } from "react-icons/ri";
 
 export const allNav = [
     {
@@ -135,5 +135,12 @@ export const allNav = [
         icon : <FaCircleUser />,
         role : 'seller',
         path : '/seller/dashboard/profile'
-    }
+    },
+    {
+  id: 18, 
+  title: 'Sales Report',
+  icon: <RiBarChart2Fill />,  // Add import from 'react-icons/ri'
+  role: 'admin',
+  path: '/admin/dashboard/sales-report'
+}
 ]

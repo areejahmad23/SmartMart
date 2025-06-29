@@ -11,6 +11,10 @@ const sellerCustomerMessage = require('../../models/chat/sellerCustomerMessage')
 const { mongo: {ObjectId}} = require('mongoose')
 const cloudinary = require('cloudinary').v2
 const formidable = require('formidable')
+// const Order = require('../../models/cutomerOrder');
+const Order = require('../../models/customerOrder'); // Correct
+
+
 
 class dashboardController {
     get_admin_dashboard_data = async(req, res) => {
@@ -478,6 +482,85 @@ get_monthly_stats = async (req, res) => {
             }
         }
         //end Method 
+
+
+
+getSalesReport = async (req, res) => {
+  try {
+    const { startDate = new Date(0), endDate = new Date() } = req.query;
+
+    // Adjust end date to include the entire day
+    const adjustedEndDate = new Date(endDate);
+    adjustedEndDate.setHours(23, 59, 59, 999);
+
+    console.log(`Fetching orders from ${startDate} to ${adjustedEndDate}`);
+
+    // First get the actual order count
+    const paidOrders = await Order.find({
+      payment_status: 'paid',
+      createdAt: { 
+        $gte: new Date(startDate), 
+        $lte: adjustedEndDate 
+      }
+    }).lean();
+
+    console.log(`Found ${paidOrders.length} paid orders in date range`);
+
+    // Then create the report data
+    const reportData = await Order.aggregate([
+      {
+        $match: {
+          payment_status: 'paid',
+          createdAt: { 
+            $gte: new Date(startDate), 
+            $lte: adjustedEndDate 
+          }
+        }
+      },
+      {
+        $project: {
+          date: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+          orderId: "$_id",
+          products: 1,
+          orderTotal: { $sum: "$products.price" }
+        }
+      },
+      { $unwind: "$products" },
+      {
+        $group: {
+          _id: "$orderId", // Group by original order ID
+          date: { $first: "$date" },
+          products: { $push: "$products" },
+          orderTotal: { $first: "$orderTotal" }
+        }
+      },
+      { $sort: { date: 1 } }
+    ]);
+
+    responseReturn(res, 200, {
+      success: true,
+      data: reportData,
+      summary: {
+        totalOrders: paidOrders.length,
+        totalRevenue: reportData.reduce((sum, order) => sum + order.orderTotal, 0),
+        dateRange: {
+          start: startDate,
+          end: endDate,
+          adjustedEnd: adjustedEndDate
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Sales report error:', error);
+    responseReturn(res, 500, { 
+      success: false,
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+};
+
 }
 
 module.exports = new dashboardController()
