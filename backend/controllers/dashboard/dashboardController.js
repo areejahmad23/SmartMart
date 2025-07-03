@@ -1,38 +1,38 @@
-const { responseReturn } = require("../../utiles/response") 
-const myShopWallet = require('../../models/myShopWallet')
-const productModel = require('../../models/productModel')
-const customerOrder = require('../../models/customerOrder')
-const sellerModel = require('../../models/sellerModel') 
-const adminSellerMessage = require('../../models/chat/adminSellerMessage') 
-const sellerWallet = require('../../models/sellerWallet') 
-const authOrder = require('../../models/authOrder')
-const bannerModel = require('../../models/bannerModel') 
-const sellerCustomerMessage = require('../../models/chat/sellerCustomerMessage') 
-const { mongo: {ObjectId}} = require('mongoose')
-const cloudinary = require('cloudinary').v2
-const formidable = require('formidable')
-// const Order = require('../../models/cutomerOrder');
-const Order = require('../../models/customerOrder'); // Correct
-
-
+const { responseReturn } = require("../../utiles/response");
+const myShopWallet = require('../../models/myShopWallet');
+const productModel = require('../../models/productModel');
+const customerOrder = require('../../models/customerOrder');
+const sellerModel = require('../../models/sellerModel');
+const adminSellerMessage = require('../../models/chat/adminSellerMessage');
+const sellerWallet = require('../../models/sellerWallet');
+const authOrder = require('../../models/authOrder');
+const bannerModel = require('../../models/bannerModel');
+const sellerCustomerMessage = require('../../models/chat/sellerCustomerMessage');
+const { mongo: { ObjectId } } = require('mongoose');
+const cloudinary = require('cloudinary').v2;
+const formidable = require('formidable');
 
 class dashboardController {
-    get_admin_dashboard_data = async(req, res) => {
-        const {id} = req 
+    // Admin Dashboard Data
+    get_admin_dashboard_data = async (req, res) => {
+        const { id } = req;
         try {
-            const totalSale = await myShopWallet.aggregate([
+            // Get total from customerOrders (what customers paid)
+            const totalSale = await customerOrder.aggregate([
                 {
-                    $group :{
-                        _id:null,
-                        totalAmount: {$sum: '$amount'}
+                    $group: {
+                        _id: null,
+                        totalAmount: { $sum: '$price' }
                     }
                 }
-            ])
-            const totalProduct = await productModel.find({}).countDocuments()
-            const totalOrder = await customerOrder.find({}).countDocuments()
-            const totalSeller = await sellerModel.find({}).countDocuments()
-            const messages = await adminSellerMessage.find({}).limit(3)
-            const recentOrders = await customerOrder.find({}).limit(5)
+            ]);
+
+            const totalProduct = await productModel.find({}).countDocuments();
+            const totalOrder = await customerOrder.find({}).countDocuments();
+            const totalSeller = await sellerModel.find({}).countDocuments();
+            const messages = await adminSellerMessage.find({}).limit(3);
+            const recentOrders = await customerOrder.find({}).limit(5);
+
             responseReturn(res, 200, {
                 totalProduct,
                 totalOrder,
@@ -40,69 +40,73 @@ class dashboardController {
                 messages,
                 recentOrders,
                 totalSale: totalSale.length > 0 ? totalSale[0].totalAmount : 0,
-            })
+            });
         } catch (error) {
-            console.log(error.message)
+            console.log(error.message);
+            responseReturn(res, 500, { error: 'Internal server error' });
         }
     }
-    //end Method 
 
+    // Seller Dashboard Data
     get_seller_dashboard_data = async (req, res) => {
-        const {id} = req 
+        const { id } = req;
         try {
+            // Get total from sellerWallet (seller's earnings after commission)
             const totalSale = await sellerWallet.aggregate([
                 {
-                    $match: { 
+                    $match: {
                         sellerId: {
                             $eq: id
-                        } 
+                        }
                     }
-                },{
+                }, {
                     $group: {
-                        _id:null,
-                        totalAmount: {$sum: '$amount'}
+                        _id: null,
+                        totalAmount: { $sum: '$amount' }
                     }
                 }
-            ])
+            ]);
 
-            const totalProduct = await productModel.find({ 
-                sellerId: new ObjectId(id) }).countDocuments()
+            const totalProduct = await productModel.find({
+                sellerId: new ObjectId(id)
+            }).countDocuments();
 
             const totalOrder = await authOrder.find({
-                sellerId: new ObjectId(id) }).countDocuments()
+                sellerId: new ObjectId(id)
+            }).countDocuments();
 
             const totalPendingOrder = await authOrder.find({
-                $and:[
+                $and: [
                     {
                         sellerId: {
                             $eq: new ObjectId(id)
                         }
                     },
                     {
-                        delivery_status :{
+                        delivery_status: {
                             $eq: 'pending'
                         }
                     }
                 ]
-            }).countDocuments()
+            }).countDocuments();
 
             const messages = await sellerCustomerMessage.find({
                 $or: [
                     {
                         senderId: {
                             $eq: id
-                        } 
-                    },{
+                        }
+                    }, {
                         receverId: {
                             $eq: id
                         }
                     }
                 ]
-            }).limit(3)   
+            }).limit(3);
 
             const recentOrders = await authOrder.find({
                 sellerId: new ObjectId(id)
-            }).limit(5)
+            }).limit(5);
 
             responseReturn(res, 200, {
                 totalProduct,
@@ -111,289 +115,338 @@ class dashboardController {
                 messages,
                 recentOrders,
                 totalSale: totalSale.length > 0 ? totalSale[0].totalAmount : 0,
-            })
+            });
 
         } catch (error) {
-            console.log(error.message)
+            console.log(error.message);
+            responseReturn(res, 500, { error: 'Internal server error' });
         }
     }
-    //end Method 
 
-
-    // daily
+    // Admin Daily Stats
     get_daily_stats = async (req, res) => {
-  try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today
+        try {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const tomorrow = new Date(today);
+            tomorrow.setDate(today.getDate() + 1);
 
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1); // Start of tomorrow
-    tomorrow.setHours(0, 0, 0, 0);
+            // Admin sees full order amount from customerOrders
+            const ordersStats = await customerOrder.aggregate([
+                {
+                    $match: {
+                        createdAt: { $gte: today, $lt: tomorrow }
+                    }
+                },
+                {
+                    $group: {
+                        _id: null,
+                        orders: { $sum: 1 },
+                        revenue: { $sum: "$price" }
+                    }
+                }
+            ]);
 
-    // Aggregate orders created today
-    const ordersStats = await authOrder.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: today, $lt: tomorrow }
+            const result = {
+                date: today.toISOString().slice(0, 10),
+                orders: ordersStats.length > 0 ? ordersStats[0].orders : 0,
+                revenue: ordersStats.length > 0 ? ordersStats[0].revenue : 0
+            };
+
+            responseReturn(res, 200, result);
+        } catch (error) {
+            console.error(error);
+            responseReturn(res, 500, { error: error.message });
         }
-      },
-      {
-        $group: {
-          _id: null,
-          orders: { $sum: 1 },
-          revenue: { $sum: "$price" }
+    }
+
+    // Admin Weekly Stats
+    get_weekly_stats = async (req, res) => {
+        try {
+            const today = new Date();
+            const dayOfWeek = today.getDay();
+            const startOfWeek = new Date(today);
+            startOfWeek.setDate(today.getDate() - dayOfWeek);
+            startOfWeek.setHours(0, 0, 0, 0);
+
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(startOfWeek.getDate() + 6);
+            endOfWeek.setHours(23, 59, 59, 999);
+
+            // Admin sees full order amount from customerOrders
+            const ordersStats = await customerOrder.aggregate([
+                {
+                    $match: {
+                        createdAt: { $gte: startOfWeek, $lte: endOfWeek }
+                    }
+                },
+                {
+                    $group: {
+                        _id: { $dayOfWeek: "$createdAt" },
+                        orders: { $sum: 1 },
+                        revenue: { $sum: "$price" }
+                    }
+                }
+            ]);
+
+            const daysMap = {
+                1: 'Sun', 2: 'Mon', 3: 'Tue', 4: 'Wed', 5: 'Thu', 6: 'Fri', 7: 'Sat'
+            };
+
+            const result = [1, 2, 3, 4, 5, 6, 7].map(dayNum => {
+                const orderDay = ordersStats.find(o => o._id === dayNum);
+                return {
+                    day: daysMap[dayNum],
+                    orders: orderDay ? orderDay.orders : 0,
+                    revenue: orderDay ? orderDay.revenue : 0
+                };
+            });
+
+            responseReturn(res, 200, result);
+        } catch (error) {
+            console.error(error);
+            responseReturn(res, 500, { error: error.message });
         }
-      }
-    ]);
+    }
 
-    // Aggregate new sellers registered today
-    const sellersStats = await sellerModel.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: today, $lt: tomorrow }
+    // Admin Monthly Stats
+    get_monthly_stats = async (req, res) => {
+        try {
+            const currentYear = new Date().getFullYear();
+
+            // Admin sees full order amount from customerOrders
+            const ordersStats = await customerOrder.aggregate([
+                {
+                    $match: {
+                        createdAt: {
+                            $gte: new Date(`${currentYear}-01-01`),
+                            $lte: new Date(`${currentYear}-12-31T23:59:59.999Z`)
+                        }
+                    }
+                },
+                {
+                    $group: {
+                        _id: { $month: "$createdAt" },
+                        orders: { $sum: 1 },
+                        revenue: { $sum: "$price" }
+                    }
+                },
+                { $sort: { "_id": 1 } }
+            ]);
+
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+            const result = months.map((monthName, idx) => {
+                const monthNumber = idx + 1;
+                const monthData = ordersStats.find(o => o._id === monthNumber);
+                return {
+                    month: monthName,
+                    orders: monthData ? monthData.orders : 0,
+                    revenue: monthData ? monthData.revenue : 0
+                };
+            });
+
+            responseReturn(res, 200, result);
+        } catch (error) {
+            console.error(error);
+            responseReturn(res, 500, { error: error.message });
         }
-      },
-      {
-        $group: {
-          _id: null,
-          sellers: { $sum: 1 }
+    }
+
+    // Seller Daily Stats
+    get_seller_daily_stats = async (req, res) => {
+        try {
+            const { id } = req;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const tomorrow = new Date(today);
+            tomorrow.setDate(today.getDate() + 1);
+
+            // Seller sees their earnings from sellerWallet
+            const walletStats = await sellerWallet.aggregate([
+                {
+                    $match: {
+                        sellerId: id,
+                        createdAt: { $gte: today, $lt: tomorrow }
+                    }
+                },
+                {
+                    $group: {
+                        _id: null,
+                        revenue: { $sum: "$amount" }
+                    }
+                }
+            ]);
+
+            // Count orders from authOrder
+            const orderStats = await authOrder.aggregate([
+                {
+                    $match: {
+                        sellerId: new ObjectId(id),
+                        createdAt: { $gte: today, $lt: tomorrow }
+                    }
+                },
+                {
+                    $group: {
+                        _id: null,
+                        orders: { $sum: 1 }
+                    }
+                }
+            ]);
+
+            const result = {
+                date: today.toISOString().slice(0, 10),
+                orders: orderStats.length > 0 ? orderStats[0].orders : 0,
+                revenue: walletStats.length > 0 ? walletStats[0].revenue : 0
+            };
+
+            responseReturn(res, 200, result);
+        } catch (error) {
+            console.error('Seller daily stats error:', error);
+            responseReturn(res, 500, { error: error.message });
         }
-      }
-    ]);
+    }
 
-    const result = {
-      date: today.toISOString().slice(0, 10), // e.g. "2025-05-28"
-      orders: ordersStats.length > 0 ? ordersStats[0].orders : 0,
-      revenue: ordersStats.length > 0 ? ordersStats[0].revenue : 0,
-      sellers: sellersStats.length > 0 ? sellersStats[0].sellers : 0
-    };
+    // Seller Weekly Stats
+    get_seller_weekly_stats = async (req, res) => {
+        try {
+            const { id } = req;
+            const today = new Date();
+            const startOfWeek = new Date(today);
+            startOfWeek.setDate(today.getDate() - today.getDay());
+            startOfWeek.setHours(0, 0, 0, 0);
 
-    responseReturn(res, 200, result);
-  } catch (error) {
-    console.error(error);
-    responseReturn(res, 500, { error: error.message });
-  }
-};
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(startOfWeek.getDate() + 6);
+            endOfWeek.setHours(23, 59, 59, 999);
 
+            // Seller earnings grouped by day
+            const walletStats = await sellerWallet.aggregate([
+                {
+                    $match: {
+                        sellerId: id,
+                        createdAt: { $gte: startOfWeek, $lte: endOfWeek }
+                    }
+                },
+                {
+                    $group: {
+                        _id: { $dayOfWeek: "$createdAt" },
+                        revenue: { $sum: "$amount" }
+                    }
+                }
+            ]);
 
-    // NEW: Add weekly stats method
+            // Order counts grouped by day
+            const orderStats = await authOrder.aggregate([
+                {
+                    $match: {
+                        sellerId: new ObjectId(id),
+                        createdAt: { $gte: startOfWeek, $lte: endOfWeek }
+                    }
+                },
+                {
+                    $group: {
+                        _id: { $dayOfWeek: "$createdAt" },
+                        orders: { $sum: 1 }
+                    }
+                }
+            ]);
 
-// get_weekly_stats = async (req, res) => {
-//   try {
-//     const today = new Date();
-//     const lastWeek = new Date(today);
-//     lastWeek.setDate(lastWeek.getDate() - 6); // last 7 days including today
+            const daysMap = {
+                1: 'Sun', 2: 'Mon', 3: 'Tue', 4: 'Wed', 5: 'Thu', 6: 'Fri', 7: 'Sat'
+            };
 
-//     // Aggregate orders by day of week
-//     const ordersStats = await authOrder.aggregate([
-//       {
-//         $match: {
-//           createdAt: { $gte: lastWeek, $lte: today }
-//         }
-//       },
-//       {
-//         $group: {
-//           _id: { $dayOfWeek: "$createdAt" }, // 1=Sunday ... 7=Saturday
-//           orders: { $sum: 1 },
-//           revenue: { $sum: "$price" }
-//         }
-//       }
-//     ]);
+            const result = [1, 2, 3, 4, 5, 6, 7].map(dayNum => {
+                const orderDay = orderStats.find(o => o._id === dayNum);
+                const walletDay = walletStats.find(w => w._id === dayNum);
+                return {
+                    day: daysMap[dayNum],
+                    orders: orderDay ? orderDay.orders : 0,
+                    revenue: walletDay ? walletDay.revenue : 0
+                };
+            });
 
-//     // Aggregate new sellers by day of week (registered in last 7 days)
-//     const sellersStats = await sellerModel.aggregate([
-//       {
-//         $match: {
-//           createdAt: { $gte: lastWeek, $lte: today }
-//         }
-//       },
-//       {
-//         $group: {
-//           _id: { $dayOfWeek: "$createdAt" },
-//           sellers: { $sum: 1 }
-//         }
-//       }
-//     ]);
-
-//     const daysMap = {
-//       1: 'Sun',
-//       2: 'Mon',
-//       3: 'Tue',
-//       4: 'Wed',
-//       5: 'Thu',
-//       6: 'Fri',
-//       7: 'Sat'
-//     };
-
-//     // Combine data for each day of week (Sun to Sat)
-//     const result = [1, 2, 3, 4, 5, 6, 7].map(dayNum => {
-//       const orderDay = ordersStats.find(o => o._id === dayNum);
-//       const sellerDay = sellersStats.find(s => s._id === dayNum);
-
-//       return {
-//         day: daysMap[dayNum],
-//         orders: orderDay ? orderDay.orders : 0,
-//         revenue: orderDay ? orderDay.revenue : 0,
-//         sellers: sellerDay ? sellerDay.sellers : 0
-//       };
-//     });
-
-//     responseReturn(res, 200, result);
-//   } catch (error) {
-//     console.error(error);
-//     responseReturn(res, 500, { error: error.message });
-//   }
-// };
-get_weekly_stats = async (req, res) => {
-  try {
-    const today = new Date();
-    const dayOfWeek = today.getDay(); // 0=Sun, 6=Sat
-
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - dayOfWeek); // Go to previous Sunday
-    startOfWeek.setHours(0, 0, 0, 0); // Beginning of day
-
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6); // Saturday
-    endOfWeek.setHours(23, 59, 59, 999); // End of day
-
-    // Aggregate orders
-    const ordersStats = await authOrder.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startOfWeek, $lte: endOfWeek }
+            responseReturn(res, 200, result);
+        } catch (error) {
+            console.error('Seller weekly stats error:', error);
+            responseReturn(res, 500, { error: error.message });
         }
-      },
-      {
-        $group: {
-          _id: { $dayOfWeek: "$createdAt" },
-          orders: { $sum: 1 },
-          revenue: { $sum: "$price" }
+    }
+
+    // Seller Monthly Stats
+    get_seller_monthly_stats = async (req, res) => {
+        try {
+            const { id } = req;
+            const currentYear = new Date().getFullYear();
+
+            // Seller earnings grouped by month
+            const walletStats = await sellerWallet.aggregate([
+                {
+                    $match: {
+                        sellerId: id,
+                        createdAt: {
+                            $gte: new Date(`${currentYear}-01-01`),
+                            $lte: new Date(`${currentYear}-12-31T23:59:59.999Z`)
+                        }
+                    }
+                },
+                {
+                    $group: {
+                        _id: { $month: "$createdAt" },
+                        revenue: { $sum: "$amount" }
+                    }
+                },
+                { $sort: { "_id": 1 } }
+            ]);
+
+            // Order counts grouped by month
+            const orderStats = await authOrder.aggregate([
+                {
+                    $match: {
+                        sellerId: new ObjectId(id),
+                        createdAt: {
+                            $gte: new Date(`${currentYear}-01-01`),
+                            $lte: new Date(`${currentYear}-12-31T23:59:59.999Z`)
+                        }
+                    }
+                },
+                {
+                    $group: {
+                        _id: { $month: "$createdAt" },
+                        orders: { $sum: 1 }
+                    }
+                },
+                { $sort: { "_id": 1 } }
+            ]);
+
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+            const result = months.map((monthName, idx) => {
+                const monthNumber = idx + 1;
+                const orderMonth = orderStats.find(o => o._id === monthNumber);
+                const walletMonth = walletStats.find(w => w._id === monthNumber);
+                return {
+                    month: monthName,
+                    orders: orderMonth ? orderMonth.orders : 0,
+                    revenue: walletMonth ? walletMonth.revenue : 0
+                };
+            });
+
+            responseReturn(res, 200, result);
+        } catch (error) {
+            console.error('Seller monthly stats error:', error);
+            responseReturn(res, 500, { error: error.message });
         }
-      }
-    ]);
+    }
 
-    // Aggregate new sellers
-    const sellersStats = await sellerModel.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startOfWeek, $lte: endOfWeek }
-        }
-      },
-      {
-        $group: {
-          _id: { $dayOfWeek: "$createdAt" },
-          sellers: { $sum: 1 }
-        }
-      }
-    ]);
-
-    const daysMap = {
-      1: 'Sun',
-      2: 'Mon',
-      3: 'Tue',
-      4: 'Wed',
-      5: 'Thu',
-      6: 'Fri',
-      7: 'Sat'
-    };
-
-    const result = [1, 2, 3, 4, 5, 6, 7].map(dayNum => {
-      const orderDay = ordersStats.find(o => o._id === dayNum);
-      const sellerDay = sellersStats.find(s => s._id === dayNum);
-      return {
-        day: daysMap[dayNum],
-        orders: orderDay ? orderDay.orders : 0,
-        revenue: orderDay ? orderDay.revenue : 0,
-        sellers: sellerDay ? sellerDay.sellers : 0
-      };
-    });
-
-    responseReturn(res, 200, result);
-  } catch (error) {
-    console.error(error);
-    responseReturn(res, 500, { error: error.message });
-  }
-};
-
-
-    //end Method 
-
-
-get_monthly_stats = async (req, res) => {
-  try {
-    const currentYear = new Date().getFullYear();
-
-    // Orders per month for current year
-    const ordersStats = await authOrder.aggregate([
-      {
-        $match: {
-          createdAt: {
-            $gte: new Date(`${currentYear}-01-01`),
-            $lte: new Date(`${currentYear}-12-31T23:59:59.999Z`)
-          }
-        }
-      },
-      {
-        $group: {
-          _id: { $month: "$createdAt" },
-          orders: { $sum: 1 },
-          revenue: { $sum: "$price" }
-        }
-      },
-      { $sort: { "_id": 1 } }
-    ]);
-
-    // Sellers registered per month for current year
-    const sellersStats = await sellerModel.aggregate([
-      {
-        $match: {
-          createdAt: {
-            $gte: new Date(`${currentYear}-01-01`),
-            $lte: new Date(`${currentYear}-12-31T23:59:59.999Z`)
-          }
-        }
-      },
-      {
-        $group: {
-          _id: { $month: "$createdAt" },
-          sellers: { $sum: 1 }
-        }
-      },
-      { $sort: { "_id": 1 } }
-    ]);
-
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-    const result = months.map((monthName, idx) => {
-      const monthNumber = idx + 1;
-      const orderMonth = ordersStats.find(o => o._id === monthNumber);
-      const sellerMonth = sellersStats.find(s => s._id === monthNumber);
-
-      return {
-        month: monthName,
-        orders: orderMonth ? orderMonth.orders : 0,
-        revenue: orderMonth ? orderMonth.revenue : 0,
-        sellers: sellerMonth ? sellerMonth.sellers : 0
-      };
-    });
-
-    responseReturn(res, 200, result);
-  } catch (error) {
-    console.error(error);
-    responseReturn(res, 500, { error: error.message });
-  }
-};
-
-
-
-    add_banner = async(req,res) =>{
+    // Banner Management
+    add_banner = async (req, res) => {
         const form = formidable({
-            multiples:true
+            multiples: true
         })
-        form.parse(req, async(err, field, files) => {
-            const {productId } = field
-            const {mainban} = files
+        form.parse(req, async (err, field, files) => {
+            const { productId } = field
+            const { mainban } = files
             cloudinary.config({
                 cloud_name: process.env.cloud_name,
                 api_key: process.env.api_key,
@@ -410,157 +463,222 @@ get_monthly_stats = async (req, res) => {
                     link: slug
                 })
                 responseReturn(res, 200, { banner, message: "Banner add success" })
-            } 
+            }
             catch (error) {
                 responseReturn(res, 500, { error: error.message })
             }
         })
     }
 
-    get_banner = async(req,res) => {
-        const {productId} = req.params
+    get_banner = async (req, res) => {
+        const { productId } = req.params
         try {
             const banner = await bannerModel.findOne({ productId: new ObjectId(productId) })
-            responseReturn(res,200, {banner})
+            responseReturn(res, 200, { banner })
         } catch (error) {
-            responseReturn(res, 500, { error: error.message})
+            responseReturn(res, 500, { error: error.message })
         }
-    
-     }
-      //end Method 
+    }
 
-      update_banner = async(req, res) => {
+    update_banner = async (req, res) => {
         const { bannerId } = req.params
         const form = formidable({})
-    
-        form.parse(req, async(err,_,files)=> {
-            const {mainban} = files
-    
+
+        form.parse(req, async (err, _, files) => {
+            const { mainban } = files
+
             cloudinary.config({
                 cloud_name: process.env.cloud_name,
                 api_key: process.env.api_key,
                 api_secret: process.env.api_secret,
                 secure: true
             })
-    
+
             try {
                 let banner = await bannerModel.findById(bannerId)
                 let temp = banner.banner.split('/')
                 temp = temp[temp.length - 1]
                 const imageName = temp.split('.')[0]
                 await cloudinary.uploader.destroy(imageName)
-    
-                const {url } =  await cloudinary.uploader.upload(mainban.filepath, {folder: 'banners'})
-    
-                await bannerModel.findByIdAndUpdate(bannerId,{
+
+                const { url } = await cloudinary.uploader.upload(mainban.filepath, { folder: 'banners' })
+
+                await bannerModel.findByIdAndUpdate(bannerId, {
                     banner: url
                 })
-    
-                banner = await bannerModel.findById(bannerId)
-                responseReturn(res,200, {banner, message: "Banner Updated Success"})
-    
-            } catch (error) {
-                responseReturn(res, 500, { error: error.message})
-            }
-    
-        })
-      }
-        //end Method 
 
-        get_banners = async(req, res) => {
-            try {
-                const banners = await bannerModel.aggregate([
-                    {
-                        $sample: {
-                            size: 5
+                banner = await bannerModel.findById(bannerId)
+                responseReturn(res, 200, { banner, message: "Banner Updated Success" })
+
+            } catch (error) {
+                responseReturn(res, 500, { error: error.message })
+            }
+        })
+    }
+
+    get_banners = async (req, res) => {
+        try {
+            const banners = await bannerModel.aggregate([
+                {
+                    $sample: {
+                        size: 5
+                    }
+                }
+            ])
+            responseReturn(res, 200, { banners })
+        } catch (error) {
+            responseReturn(res, 500, { error: error.message })
+        }
+    }
+
+    // Sales Report
+getSalesReport = async (req, res) => {
+    try {
+        const { startDate = new Date(0), endDate = new Date() } = req.query;
+        const adjustedEndDate = new Date(endDate);
+        adjustedEndDate.setHours(23, 59, 59, 999);
+
+        // Get paid orders with complete product details
+        const reportData = await customerOrder.aggregate([
+            {
+                $match: {
+                    payment_status: 'paid',
+                    createdAt: {
+                        $gte: new Date(startDate),
+                        $lte: adjustedEndDate
+                    }
+                }
+            },
+            {
+                $lookup: {
+                    from: 'products',
+                    localField: 'products.productId',
+                    foreignField: '_id',
+                    as: 'productDetails'
+                }
+            },
+            {
+                $project: {
+                    date: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                    orderId: "$_id",
+                    customerName: 1,
+                    products: {
+                        $map: {
+                            input: "$products",
+                            as: "orderProduct",
+                            in: {
+                                $mergeObjects: [
+                                    "$$orderProduct",
+                                    {
+                                        $arrayElemAt: [
+                                            "$productDetails",
+                                            {
+                                                $indexOfArray: [
+                                                    "$productDetails._id",
+                                                    "$$orderProduct.productId"
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    orderTotal: { $sum: "$products.price" },
+                    delivery_status: 1
+                }
+            },
+            { $sort: { date: 1 } }
+        ]);
+
+        // Calculate accurate totals
+        const totalRevenue = reportData.reduce((sum, order) => sum + order.orderTotal, 0);
+        const totalOrders = reportData.length;
+
+        responseReturn(res, 200, {
+            success: true,
+            data: reportData,
+            summary: {
+                totalOrders,
+                totalRevenue,
+                averageOrderValue: totalOrders > 0 ? (totalRevenue / totalOrders) : 0,
+                dateRange: {
+                    start: startDate,
+                    end: endDate,
+                    adjustedEnd: adjustedEndDate
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Admin sales report error:', error);
+        responseReturn(res, 500, {
+            success: false,
+            error: error.message
+        });
+    }
+}
+
+// Add to your existing dashboardController class
+get_seller_sales_report = async (req, res) => {
+    const { id } = req;
+    try {
+        const { startDate = new Date(0), endDate = new Date() } = req.query;
+        const adjustedEndDate = new Date(endDate);
+        adjustedEndDate.setHours(23, 59, 59, 999);
+
+        // Get seller's orders with calculated earnings
+        const orders = await authOrder.aggregate([
+            {
+                $match: {
+                    sellerId: new ObjectId(id),
+                    createdAt: { $gte: new Date(startDate), $lte: adjustedEndDate },
+                    payment_status: 'paid'
+                }
+            },
+            {
+                $project: {
+                    createdAt: 1,
+                    products: 1,
+                    delivery_status: 1,
+                    sellerEarnings: {
+                        $sum: {
+                            $map: {
+                                input: "$products",
+                                as: "product",
+                                in: { $multiply: ["$$product.price", "$$product.quantity", 0.8] }
+                            }
                         }
                     }
-                ])
-                responseReturn(res,200,{ banners })
-            } catch (error) {
-                responseReturn(res, 500, { error: error.message})
+                }
+            },
+            { $sort: { createdAt: -1 } }
+        ]);
+
+        // Calculate totals
+        const totalEarnings = orders.reduce((sum, order) => sum + order.sellerEarnings, 0);
+
+        responseReturn(res, 200, {
+            success: true,
+            data: orders,
+            summary: {
+                totalOrders: orders.length,
+                totalRevenue: totalEarnings,
+                averageOrderValue: orders.length > 0 ? (totalEarnings / orders.length) : 0,
+                startDate: startDate,
+                endDate: endDate
             }
-        }
-        //end Method 
+        });
 
-
-
-getSalesReport = async (req, res) => {
-  try {
-    const { startDate = new Date(0), endDate = new Date() } = req.query;
-
-    // Adjust end date to include the entire day
-    const adjustedEndDate = new Date(endDate);
-    adjustedEndDate.setHours(23, 59, 59, 999);
-
-    console.log(`Fetching orders from ${startDate} to ${adjustedEndDate}`);
-
-    // First get the actual order count
-    const paidOrders = await Order.find({
-      payment_status: 'paid',
-      createdAt: { 
-        $gte: new Date(startDate), 
-        $lte: adjustedEndDate 
-      }
-    }).lean();
-
-    console.log(`Found ${paidOrders.length} paid orders in date range`);
-
-    // Then create the report data
-    const reportData = await Order.aggregate([
-      {
-        $match: {
-          payment_status: 'paid',
-          createdAt: { 
-            $gte: new Date(startDate), 
-            $lte: adjustedEndDate 
-          }
-        }
-      },
-      {
-        $project: {
-          date: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-          orderId: "$_id",
-          products: 1,
-          orderTotal: { $sum: "$products.price" }
-        }
-      },
-      { $unwind: "$products" },
-      {
-        $group: {
-          _id: "$orderId", // Group by original order ID
-          date: { $first: "$date" },
-          products: { $push: "$products" },
-          orderTotal: { $first: "$orderTotal" }
-        }
-      },
-      { $sort: { date: 1 } }
-    ]);
-
-    responseReturn(res, 200, {
-      success: true,
-      data: reportData,
-      summary: {
-        totalOrders: paidOrders.length,
-        totalRevenue: reportData.reduce((sum, order) => sum + order.orderTotal, 0),
-        dateRange: {
-          start: startDate,
-          end: endDate,
-          adjustedEnd: adjustedEndDate
-        }
-      }
-    });
-
-  } catch (error) {
-    console.error('Sales report error:', error);
-    responseReturn(res, 500, { 
-      success: false,
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
-  }
-};
+    } catch (error) {
+        console.error('Seller sales report error:', error);
+        responseReturn(res, 500, {
+            success: false,
+            error: error.message
+        });
+    }
+}
 
 }
 
-module.exports = new dashboardController()
+module.exports = new dashboardController();

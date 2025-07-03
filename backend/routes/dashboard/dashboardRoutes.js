@@ -15,7 +15,9 @@ const dashboardController = require('../../controllers/dashboard/dashboardContro
  router.get('/admin/daily-stats', authMiddleware, dashboardController.get_daily_stats);
  router.get('/admin/sales-report', authMiddleware, dashboardController.getSalesReport);
 
+router.get('/seller-weekly-stats', authMiddleware, dashboardController.get_seller_weekly_stats);
+router.get('/seller-monthly-stats', authMiddleware, dashboardController.get_seller_monthly_stats);
+router.get('/seller-daily-stats', authMiddleware, dashboardController.get_seller_daily_stats);
+router.get('/seller/sales-report', authMiddleware, dashboardController.get_seller_sales_report);
 
-
-
- module.exports = router
+module.exports = router

@@ -56,7 +56,7 @@ const Sellers = () => {
                 <th scope='col' className='py-3 px-4'>Payment Status</th>
                 <th scope='col' className='py-3 px-4'>Email</th>
                 <th scope='col' className='py-3 px-4'>Status</th>
-                <th scope='col' className='py-3 px-4'>District</th>
+                {/* <th scope='col' className='py-3 px-4'>District</th> */}
                 <th scope='col' className='py-3 px-4'>Action</th>
               </tr>
             </thead>
@@ -89,9 +89,9 @@ const Sellers = () => {
                   <td scope='row' className='py-1 px-4 font-medium whitespace-nowrap'>
                   { d.status }
                   </td>
-                  <td scope='row' className='py-1 px-4 font-medium whitespace-nowrap'>
+                  {/* <td scope='row' className='py-1 px-4 font-medium whitespace-nowrap'>
                   { d.shopInfo?.district }
-                  </td>
+                  </td> */}
                   <td scope='row' className='py-1 px-4 font-medium whitespace-nowrap'>
                     <div className='flex justify-start items-center gap-4'>
                       <Link to={`/admin/dashboard/seller/details/${d._id}`}

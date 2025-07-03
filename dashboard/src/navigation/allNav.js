@@ -142,5 +142,12 @@ export const allNav = [
   icon: <RiBarChart2Fill />,  // Add import from 'react-icons/ri'
   role: 'admin',
   path: '/admin/dashboard/sales-report'
+},
+{
+  id: 19, 
+  title: 'Sales Report',
+  icon: <RiBarChart2Fill />,  // Add import from 'react-icons/ri'
+  role: 'seller',
+  path: '/seller/dashboard/sales-report'
 }
 ]
